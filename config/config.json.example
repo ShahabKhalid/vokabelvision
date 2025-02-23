@@ -1,0 +1,9 @@
+{
+    "chatgpt_api_key": "YOUR_CHATGPT_API_KEY",
+    "leonardo_api_key": "YOUR_LEONARDO_API_KEY",
+    "elevenlabs_api_key": "YOUR_ELEVENLABS_API_KEY",
+    "elevenlabs_voice_id": "VOICE_ID",
+    "instagram_user_id": "YOUR_INSTAGRAM_API_KEY",
+    "instagram_access_token": "YOUR_INSTAGRAM_ACCESS_TOKEN",
+    "cloudinary_url": "cloudinary://<api_key>:<api_secret>@<cloud_name>"
+}
