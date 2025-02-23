@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -19,82 +20,97 @@ import (
 
 func main() {
 
-	// Load the Berlin location.
-	berlin, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		log.Fatalf("Failed to load Berlin timezone: %v", err)
-	}
+	// Define the --once flag. It defaults to false.
+	once := flag.Bool("once", false, "Run the task once instead of scheduling it")
 
+	// Parse command-line flags.
+	flag.Parse()
+
+	// Check if the --once flag is provided.
+	if *once {
+		GenerateAndPost()
+	} else {
+		// Load the Berlin location.
+		berlin, err := time.LoadLocation("Europe/Berlin")
+		if err != nil {
+			log.Fatalf("Failed to load Berlin timezone: %v", err)
+		}
+
+		// Create a new cron scheduler that runs in the Berlin timezone.
+		c := cron.New(cron.WithLocation(berlin))
+
+		// Schedule the job to run at 6 AM and 6 PM every day.
+		// Cron spec (minute hour day month day-of-week): "0 6,18 * * *"
+		_, err = c.AddFunc("0 7,13,19 * * *", func() {
+			GenerateAndPost()
+		})
+
+		if err != nil {
+			log.Fatalf("Failed to add cron job: %v", err)
+		}
+
+		// Start the cron scheduler.
+		c.Start()
+		log.Println("Scheduler started. Waiting for scheduled tasks...")
+
+		// Block forever to keep the application running.
+		select {}
+	}
+}
+
+func GenerateAndPost() {
 	// Load configuration.
 	cfg, err := config.LoadConfig("config/config.json")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-
-	// Create a new cron scheduler that runs in the Berlin timezone.
-	c := cron.New(cron.WithLocation(berlin))
-
-	// Schedule the job to run at 6 AM and 6 PM every day.
-	// Cron spec (minute hour day month day-of-week): "0 6,18 * * *"
-	_, err = c.AddFunc("0 6,18 * * *", func() {
-		// Step 1: Get vocabulary word from ChatGPT.
-		vocab, err := chatgpt.GetVocab(cfg.ChatGPTAPIKey)
-		if err != nil {
-			log.Fatalf("Error getting vocab: %v", err)
-		}
-		fmt.Printf("Got vocab: %+v\n", vocab)
-
-		// // // Step 2: Generate Leonardo.ai prompt.
-		prompt := leonardo.GeneratePrompt(vocab.English, vocab.German, vocab.Sentence)
-		fmt.Println("Generated Leonardo prompt:", prompt)
-
-		// Step 3: Get image from Leonardo.ai.
-		imagePath, err := leonardo.GetImage(cfg.LeonardoAPIKey, prompt)
-		if err != nil {
-			log.Fatalf("Error getting image: %v", err)
-		}
-		fmt.Println("Image saved at:", imagePath)
-		// os.Exit(1)
-		// Step 4: Get audio from ElevenLabs.
-		audioPath, err := elevenlabs.GetAudio(cfg.ElevenLabsAPIKey, vocab.German, vocab.Sentence, cfg.ElevenLabsVoiceID)
-		if err != nil {
-			log.Fatalf("Error getting audio: %v", err)
-		}
-		fmt.Println("Audio saved at:", audioPath)
-
-		// Step 5: Generate video reel.
-		// imagePath := "vocab_image.jpg"
-		// audioPath := "vocab_audio.mp3"
-		outputVideoPath := "vocab_reel.mp4"
-
-		if err := video.GenerateVideo(imagePath, audioPath, outputVideoPath); err != nil {
-			log.Fatalf("Error generating video: %v", err)
-		}
-		fmt.Println("Video generated at:", outputVideoPath)
-
-		videoURL, publicID := cloudinary.UploadVideo(cfg.CloudinaryURL, outputVideoPath)
-
-		// // Step 6: Upload video to Instagram.
-		if err := instagram.PublishVideo(cfg.InstagramUserID, cfg.InstagramAccessToken, videoURL, vocab.Caption); err != nil {
-			log.Fatalf("Error uploading video: %v", err)
-		}
-		fmt.Println("Reel uploaded successfully!")
-		cloudinary.DeleteVideo(cfg.CloudinaryURL, publicID)
-		DeleteFileIfExists(outputVideoPath)
-		DeleteFileIfExists("vocab_audio.mp3")
-		DeleteFileIfExists("vocab_image.jpg")
-	})
-
+	// Step 1: Get vocabulary word from ChatGPT.
+	vocab, err := chatgpt.GetVocab(cfg.ChatGPTAPIKey)
 	if err != nil {
-		log.Fatalf("Failed to add cron job: %v", err)
+		log.Fatalf("Error getting vocab: %v", err)
 	}
+	fmt.Printf("Got vocab: %+v\n", vocab)
 
-	// Start the cron scheduler.
-	c.Start()
-	log.Println("Scheduler started. Waiting for scheduled tasks...")
+	// // // Step 2: Generate Leonardo.ai prompt.
+	prompt := leonardo.GeneratePrompt(vocab.English, vocab.German, vocab.Sentence)
+	fmt.Println("Generated Leonardo prompt:", prompt)
 
-	// Block forever to keep the application running.
-	select {}
+	// Step 3: Get image from Leonardo.ai.
+	imagePath, err := leonardo.GetImage(cfg.LeonardoAPIKey, prompt)
+	if err != nil {
+		log.Fatalf("Error getting image: %v", err)
+	}
+	fmt.Println("Image saved at:", imagePath)
+	// os.Exit(1)
+	// Step 4: Get audio from ElevenLabs.
+	audioPath, err := elevenlabs.GetAudio(cfg.ElevenLabsAPIKey, vocab.German, vocab.Sentence, cfg.ElevenLabsVoiceID)
+	if err != nil {
+		log.Fatalf("Error getting audio: %v", err)
+	}
+	fmt.Println("Audio saved at:", audioPath)
+
+	// Step 5: Generate video reel.
+	// imagePath := "vocab_image.jpg"
+	// audioPath := "vocab_audio.mp3"
+	outputVideoPath := "vocab_reel.mp4"
+
+	if err := video.GenerateVideo(imagePath, audioPath, outputVideoPath); err != nil {
+		log.Fatalf("Error generating video: %v", err)
+	}
+	fmt.Println("Video generated at:", outputVideoPath)
+
+	videoURL, publicID := cloudinary.UploadVideo(cfg.CloudinaryURL, outputVideoPath)
+
+	// // Step 6: Upload video to Instagram.
+	captionWithTags := fmt.Sprintf("%s #love #instagood #instagram #art #happy #travel #repost #german #germanlanguage", vocab.Caption)
+	if err := instagram.PublishVideo(cfg.InstagramUserID, cfg.InstagramAccessToken, videoURL, captionWithTags); err != nil {
+		log.Fatalf("Error uploading video: %v", err)
+	}
+	fmt.Println("Reel uploaded successfully!")
+	cloudinary.DeleteVideo(cfg.CloudinaryURL, publicID)
+	DeleteFileIfExists(outputVideoPath)
+	DeleteFileIfExists("vocab_audio.mp3")
+	DeleteFileIfExists("vocab_image.jpg")
 }
 
 // DeleteFileIfExists deletes the specified file if it exists.
