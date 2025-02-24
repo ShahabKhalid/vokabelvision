@@ -65,12 +65,12 @@ func GenerateAndPost() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 	// Step 1: Get vocabulary word from ChatGPT.
-	vocab, err := chatgpt.GetVocab(cfg.ChatGPTAPIKey)
+	postedVocabFilePath := "postedvocabs.json"
+	vocab, err := chatgpt.GetVocab(cfg.ChatGPTAPIKey, postedVocabFilePath)
 	if err != nil {
 		log.Fatalf("Error getting vocab: %v", err)
 	}
 	fmt.Printf("Got vocab: %+v\n", vocab)
-
 	// // // Step 2: Generate Leonardo.ai prompt.
 	prompt := leonardo.GeneratePrompt(vocab.English, vocab.German, vocab.Sentence)
 	fmt.Println("Generated Leonardo prompt:", prompt)
@@ -107,6 +107,7 @@ func GenerateAndPost() {
 		log.Fatalf("Error uploading video: %v", err)
 	}
 	fmt.Println("Reel uploaded successfully!")
+	chatgpt.UpdatePostedVocabs(postedVocabFilePath, vocab.English)
 	cloudinary.DeleteVideo(cfg.CloudinaryURL, publicID)
 	DeleteFileIfExists(outputVideoPath)
 	DeleteFileIfExists("vocab_audio.mp3")
