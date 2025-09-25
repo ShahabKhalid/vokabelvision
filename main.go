@@ -11,8 +11,10 @@ import (
 	"vokabelvision/cloudinary"
 	"vokabelvision/config"
 	"vokabelvision/elevenlabs"
+	"vokabelvision/huggingface"
 	"vokabelvision/instagram"
 	"vokabelvision/leonardo"
+	"vokabelvision/utils"
 	"vokabelvision/video"
 
 	"github.com/robfig/cron/v3"
@@ -76,10 +78,29 @@ func GenerateAndPost() {
 	fmt.Println("Generated Leonardo prompt:", prompt)
 
 	// Step 3: Get image from Leonardo.ai.
-	imagePath, err := leonardo.GetImage(cfg.LeonardoAPIKey, prompt)
+	fmt.Printf(prompt)
+
+	imagePath, err := huggingface.GenerateImage(prompt, "black-forest-labs/FLUX.1-schnell", "vocab_image.jpg")
 	if err != nil {
-		log.Fatalf("Error getting image: %v", err)
+		log.Fatalf("Error generation HF image: %v", err)
 	}
+
+	imagePath, err = utils.CreateReelImage(
+		imagePath,
+		imagePath,
+		vocab.German,
+		"font/RoundySlaby-Regular Demo.ttf",
+	)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("✅ Saved update image at:", imagePath)
+
+	// imagePath, err := leonardo.GetImage(cfg.LeonardoAPIKey, prompt)
+	// if err != nil {
+	// 	log.Fatalf("Error getting image: %v", err)
+	// }
 	fmt.Println("Image saved at:", imagePath)
 	// os.Exit(1)
 	// Step 4: Get audio from ElevenLabs.
@@ -101,6 +122,7 @@ func GenerateAndPost() {
 
 	videoURL, publicID := cloudinary.UploadVideo(cfg.CloudinaryURL, outputVideoPath)
 
+	// os.Exit(0)
 	// // Step 6: Upload video to Instagram.
 	captionWithTags := fmt.Sprintf("%s #love #instagood #instagram #art #happy #travel #repost #german #germanlanguage", vocab.Caption)
 	if err := instagram.PublishVideo(cfg.InstagramUserID, cfg.InstagramAccessToken, videoURL, captionWithTags); err != nil {
