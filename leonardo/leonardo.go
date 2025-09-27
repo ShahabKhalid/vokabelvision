@@ -15,7 +15,7 @@ import (
 
 // GeneratePrompt creates a Leonardo.ai prompt using the English and German words.
 func GeneratePrompt(english, german, sentence string) string {
-	promptTemplate := fmt.Sprintf(`A %s centered on a solid background, with a white square border."`, english)
+	promptTemplate := fmt.Sprintf(`A %s centered on a solid background.`, english)
 	prompt := strings.ReplaceAll(promptTemplate, "[word]", english)
 	prompt = strings.ReplaceAll(prompt, "[german_translation]", german)
 	return prompt

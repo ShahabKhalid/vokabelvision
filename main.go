@@ -11,7 +11,7 @@ import (
 	"vokabelvision/cloudinary"
 	"vokabelvision/config"
 	"vokabelvision/elevenlabs"
-	"vokabelvision/huggingface"
+	"vokabelvision/googleai"
 	"vokabelvision/instagram"
 	"vokabelvision/leonardo"
 	"vokabelvision/utils"
@@ -80,10 +80,17 @@ func GenerateAndPost() {
 	// Step 3: Get image from Leonardo.ai.
 	fmt.Printf(prompt)
 
-	imagePath, err := huggingface.GenerateImage(prompt, "black-forest-labs/FLUX.1-schnell", "vocab_image.jpg")
+	// imagePath, err := huggingface.GenerateImage(prompt, "black-forest-labs/FLUX.1-schnell", "vocab_image.jpg")
+	// if err != nil {
+	// 	log.Fatalf("Error generation HF image: %v", err)
+	// }
+
+	imagePath, err := googleai.GenerateImage(prompt, "vocab_image.jpg")
 	if err != nil {
-		log.Fatalf("Error generation HF image: %v", err)
+		fmt.Println("Error Nano-Banana image generation :", err)
+		return
 	}
+	fmt.Println("Saved:", imagePath)
 
 	imagePath, err = utils.CreateReelImage(
 		imagePath,
