@@ -45,7 +45,7 @@ func CreateReelImage(inputPath, outputPath, text, fontPath string) (string, erro
 	dc.DrawImage(im, offsetX, offsetY)
 
 	// Load font
-	fontSize := float64(canvasW) * 0.1 // text ~10% of width
+	fontSize := float64(canvasW) * 0.05 // text ~10% of width
 	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
 		return "", fmt.Errorf("failed to load font: %w", err)
 	}

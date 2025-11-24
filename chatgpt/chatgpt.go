@@ -75,7 +75,7 @@ func GetVocab(apiKey, postedFile string) (Vocab, error) {
 	excludeList := strings.Join(postedWords, ", ")
 
 	// Build the prompt with instructions:
-	prompt := "Give me a random German vocabulary word with its English translation. " +
+	prompt := "Give me a random German vocabulary word with its English translation." +
 		"Provide a reel caption that includes the German word (with its article when possible) " +
 		"and its English translation, along with hashtags related to German learning. " +
 		"Also provide one sample sentence in German using the word, with each sentence not exceeding 10 words. " +

@@ -96,13 +96,14 @@ func GenerateAndPost() {
 		imagePath,
 		imagePath,
 		vocab.German,
-		"font/RoundySlaby-Regular Demo.ttf",
+		"font/din1451alt.ttf",
 	)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 	fmt.Println("✅ Saved update image at:", imagePath)
+	// os.Exit(0)
 
 	// imagePath, err := leonardo.GetImage(cfg.LeonardoAPIKey, prompt)
 	// if err != nil {
