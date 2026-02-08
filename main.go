@@ -10,7 +10,7 @@ import (
 	"vokabelvision/chatgpt"
 	"vokabelvision/cloudinary"
 	"vokabelvision/config"
-	"vokabelvision/elevenlabs"
+	"vokabelvision/edgetts"
 	"vokabelvision/googleai"
 	"vokabelvision/instagram"
 	"vokabelvision/leonardo"
@@ -111,8 +111,8 @@ func GenerateAndPost() {
 	// }
 	fmt.Println("Image saved at:", imagePath)
 	// os.Exit(1)
-	// Step 4: Get audio from ElevenLabs.
-	audioPath, err := elevenlabs.GetAudio(cfg.ElevenLabsAPIKey, vocab.German, vocab.Sentence, cfg.ElevenLabsVoiceID)
+	// Step 4: Get audio from Edge TTS (free, no API key required).
+	audioPath, err := edgetts.GetAudio(vocab.German, "de-DE-ConradNeural")
 	if err != nil {
 		log.Fatalf("Error getting audio: %v", err)
 	}

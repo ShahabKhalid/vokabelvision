@@ -75,13 +75,14 @@ func GetVocab(apiKey, postedFile string) (Vocab, error) {
 	excludeList := strings.Join(postedWords, ", ")
 
 	// Build the prompt with instructions:
-	prompt := "Give me a random German vocabulary word with its English translation." +
+	prompt := "Give me a German vocabulary word (Book) with its English translation." +
 		"Provide a reel caption that includes the German word (with its article when possible) " +
 		"and its English translation, along with hashtags related to German learning. " +
-		"Also provide one sample sentence in German using the word, with each sentence not exceeding 10 words. " +
+		"Also provide exactly one sample sentence in German using the word, not exceeding 10 words. " +
 		fmt.Sprintf("Do not use the following words: %s. ", excludeList) +
 		"Always include the article with the German word when possible. " +
-		"Return the result in JSON format with keys 'english', 'german', 'caption', and 'sentence'."
+		"Return the result in JSON format with keys 'english', 'german', 'caption', and 'sentence'. " +
+		"IMPORTANT: The 'sentence' value must be a single string, not an array."
 
 	apiURL := "https://api.openai.com/v1/chat/completions"
 	payload := map[string]interface{}{

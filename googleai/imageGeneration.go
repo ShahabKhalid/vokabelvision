@@ -24,9 +24,8 @@ func GenerateImage(prompt, outputFile string) (string, error) {
 	}
 	defer client.Close()
 
-	// Use an image-capable model. Adjust to the image model available to your project,
-	// e.g. "gemini-2.5-flash-image-preview" or "imagen-3.0".
-	model := client.GenerativeModel("gemini-2.5-flash-image-preview")
+	// Use an image-capable model. Adjust to the image model available to your project.
+	model := client.GenerativeModel("gemini-2.5-flash-image")
 
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
