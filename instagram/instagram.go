@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -58,7 +57,54 @@ func PublishVideo(igUserID, bearerToken, videoURL, caption string) error {
 		return fmt.Errorf("error parsing container response: %v", err)
 	}
 
-	// Step 2: Publish the media container with retry.
+	// Step 2: Wait for the media container to finish processing.
+	statusURL := fmt.Sprintf("https://graph.instagram.com/v22.0/%s?fields=status_code,status", containerResp.ID)
+	maxStatusChecks := 30
+	statusDelay := 10 * time.Second
+
+	for i := 0; i < maxStatusChecks; i++ {
+		statusReq, err := http.NewRequest("GET", statusURL, nil)
+		if err != nil {
+			return fmt.Errorf("error creating status request: %v", err)
+		}
+		statusReq.Header.Set("Authorization", "Bearer "+bearerToken)
+
+		statusResp, err := client.Do(statusReq)
+		if err != nil {
+			return fmt.Errorf("error checking container status: %v", err)
+		}
+
+		statusRespBytes, err := ioutil.ReadAll(statusResp.Body)
+		statusResp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("error reading status response: %v", err)
+		}
+
+		fmt.Printf("Status check %d - response (status %d): %s\n", i+1, statusResp.StatusCode, string(statusRespBytes))
+
+		var statusResult struct {
+			StatusCode string `json:"status_code"`
+			Status     string `json:"status"`
+		}
+		if err := json.Unmarshal(statusRespBytes, &statusResult); err != nil {
+			return fmt.Errorf("error parsing status response: %v", err)
+		}
+
+		if statusResult.StatusCode == "FINISHED" {
+			fmt.Println("Media container processing finished.")
+			break
+		}
+		if statusResult.StatusCode == "ERROR" {
+			return fmt.Errorf("media container processing failed: %s", statusResult.Status)
+		}
+		if i == maxStatusChecks-1 {
+			return fmt.Errorf("media container still not ready after %d status checks", maxStatusChecks)
+		}
+
+		time.Sleep(statusDelay)
+	}
+
+	// Step 3: Publish the media container.
 	publishURL := fmt.Sprintf("https://graph.instagram.com/v22.0/%s/media_publish", igUserID)
 	publishPayload := map[string]string{
 		"creation_id": containerResp.ID,
@@ -68,44 +114,28 @@ func PublishVideo(igUserID, bearerToken, videoURL, caption string) error {
 		return fmt.Errorf("error marshalling publish payload: %v", err)
 	}
 
-	var publishRespBytes []byte
-	maxRetries := 10
-	delay := 5 * time.Second
-	var pubResp *http.Response
+	pubReq, err := http.NewRequest("POST", publishURL, bytes.NewBuffer(publishBody))
+	if err != nil {
+		return fmt.Errorf("error creating publish request: %v", err)
+	}
+	pubReq.Header.Set("Content-Type", "application/json")
+	pubReq.Header.Set("Authorization", "Bearer "+bearerToken)
 
-	for i := 0; i < maxRetries; i++ {
-		req2, err := http.NewRequest("POST", publishURL, bytes.NewBuffer(publishBody))
-		if err != nil {
-			return fmt.Errorf("error creating publish request: %v", err)
-		}
-		req2.Header.Set("Content-Type", "application/json")
-		req2.Header.Set("Authorization", "Bearer "+bearerToken)
+	pubResp, err := client.Do(pubReq)
+	if err != nil {
+		return fmt.Errorf("error publishing media container: %v", err)
+	}
+	defer pubResp.Body.Close()
 
-		pubResp, err = client.Do(req2)
-		if err != nil {
-			return fmt.Errorf("error publishing media container: %v", err)
-		}
-
-		publishRespBytes, err = ioutil.ReadAll(pubResp.Body)
-		pubResp.Body.Close()
-		if err != nil {
-			return fmt.Errorf("error reading publish response: %v", err)
-		}
-
-		fmt.Printf("Attempt %d - Media publish response (status %d): %s\n", i+1, pubResp.StatusCode, string(publishRespBytes))
-
-		// If the response status is OK and it doesn't indicate that Media ID is not available, break.
-		if pubResp.StatusCode == http.StatusOK && !strings.Contains(string(publishRespBytes), "Media ID is not available") {
-			break
-		}
-
-		// Wait before the next retry.
-		time.Sleep(delay)
+	publishRespBytes, err := ioutil.ReadAll(pubResp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading publish response: %v", err)
 	}
 
-	// Final check after retry loop.
-	if pubResp.StatusCode != http.StatusOK || strings.Contains(string(publishRespBytes), "Media ID is not available") {
-		return fmt.Errorf("error publishing media container after retries: status %d, response: %s", pubResp.StatusCode, string(publishRespBytes))
+	fmt.Printf("Media publish response (status %d): %s\n", pubResp.StatusCode, string(publishRespBytes))
+
+	if pubResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error publishing media container: status %d, response: %s", pubResp.StatusCode, string(publishRespBytes))
 	}
 
 	var publishResp struct {
