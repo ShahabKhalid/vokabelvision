@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
 
 // GetAudio generates audio using Microsoft Edge TTS via edge-tts CLI.
@@ -24,16 +25,27 @@ func GetAudio(text string, voiceID string) (string, error) {
 	for i := 0; i < 3; i++ {
 		tempFile := filepath.Join(tempDir, fmt.Sprintf("part%d.mp3", i))
 
-		// Run edge-tts command
-		cmd := exec.Command("edge-tts",
-			"--voice", voiceID,
-			"--rate=-10%",
-			"--text", text,
-			"--write-media", tempFile,
-		)
-		output, err := cmd.CombinedOutput()
+		// Run edge-tts command with retries
+		var output []byte
+		maxRetries := 3
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			cmd := exec.Command("edge-tts",
+				"--voice", voiceID,
+				"--rate=-10%",
+				"--text", text,
+				"--write-media", tempFile,
+			)
+			output, err = cmd.CombinedOutput()
+			if err == nil {
+				break
+			}
+			if attempt < maxRetries-1 {
+				fmt.Printf("edge-tts attempt %d failed, retrying in 5s...\n", attempt+1)
+				time.Sleep(5 * time.Second)
+			}
+		}
 		if err != nil {
-			return "", fmt.Errorf("edge-tts failed: %w, output: %s", err, string(output))
+			return "", fmt.Errorf("edge-tts failed after %d attempts: %w, output: %s", maxRetries, err, string(output))
 		}
 
 		audioFiles = append(audioFiles, tempFile)
