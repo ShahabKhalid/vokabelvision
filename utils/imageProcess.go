@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 
 	"github.com/fogleman/gg"
 )
@@ -102,13 +103,42 @@ func CreateReelImageWithTranslation(inputPath, outputPath, germanText, englishTe
 	y := float64(canvasH) - 150
 	dc.DrawStringAnchored(germanText, x, y, 0.5, 0.5)
 
-	// Draw English translation below in accent color (if provided)
+	// Draw English meaning below German text in accent color (if provided) with wrapping and adaptive font size
 	if englishText != "" {
-		smallFontSize := 32.0
-		if err := dc.LoadFontFace(fontPath, smallFontSize); err == nil {
+		maxWidth := float64(canvasW) - 80 // 40px margin on each side
+		availableHeight := 200.0 // Space available in overlay for English text
+
+		// Try font sizes from 28 down to 12, finding the best fit
+		bestFontSize := 28.0
+		var wrappedLines []string
+
+		for tryFontSize := 28.0; tryFontSize >= 12.0; tryFontSize -= 2.0 {
+			if err := dc.LoadFontFace(fontPath, tryFontSize); err != nil {
+				continue
+			}
+
+			lines := wrapText(dc, englishText, maxWidth)
+			lineHeight := tryFontSize * 1.2 // Line spacing multiplier
+			totalHeight := float64(len(lines)) * lineHeight
+
+			if totalHeight <= availableHeight {
+				bestFontSize = tryFontSize
+				wrappedLines = lines
+				break
+			}
+		}
+
+		// Load best font size and draw wrapped text
+		if err := dc.LoadFontFace(fontPath, bestFontSize); err == nil {
 			dc.SetColor(BrandAccentColor)
-			yEnglish := float64(canvasH) - 75
-			dc.DrawStringAnchored(englishText, x, yEnglish, 0.5, 0.5)
+
+			lineHeight := bestFontSize * 1.2
+			startY := float64(canvasH) - 70.0 // Start below the German text
+
+			for i, line := range wrappedLines {
+				yPos := startY + float64(i)*lineHeight
+				dc.DrawStringAnchored(line, x, yPos, 0.5, 0.5)
+			}
 		}
 	}
 
@@ -142,4 +172,39 @@ func resizeImage(im image.Image, maxW, maxH int) image.Image {
 	// Draw image scaled to fit
 	dc.DrawImage(im, 0, 0)
 	return dc.Image()
+}
+
+// wrapText wraps text to fit within maxWidth, breaking on word boundaries
+func wrapText(dc *gg.Context, text string, maxWidth float64) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{}
+	}
+
+	var lines []string
+	var currentLine string
+
+	for _, word := range words {
+		testLine := currentLine
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		bounds, _ := dc.MeasureString(testLine)
+		if bounds <= maxWidth {
+			currentLine = testLine
+		} else {
+			if currentLine != "" {
+				lines = append(lines, currentLine)
+			}
+			currentLine = word
+		}
+	}
+
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
 }
