@@ -103,6 +103,74 @@ func generateSilence(ms int) []byte {
 	return result
 }
 
+// GetAudioSequence generates audio for multiple text segments read once each,
+// with 2s silence between them.
+func GetAudioSequence(segments []string, voiceID string) (string, error) {
+	audioPath := "vocab_audio.mp3"
+
+	// Create temp directory for intermediate files
+	tempDir, err := os.MkdirTemp("", "edgetts")
+	if err != nil {
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Generate audio for each segment
+	var audioFiles []string
+	for i, segment := range segments {
+		tempFile := filepath.Join(tempDir, fmt.Sprintf("part%d.mp3", i))
+
+		// Run edge-tts command with retries
+		var output []byte
+		maxRetries := 3
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			cmd := exec.Command("edge-tts",
+				"--voice", voiceID,
+				"--rate=-10%",
+				"--text", segment,
+				"--write-media", tempFile,
+			)
+			output, err = cmd.CombinedOutput()
+			if err == nil {
+				break
+			}
+			if attempt < maxRetries-1 {
+				fmt.Printf("edge-tts attempt %d failed, retrying in 5s...\n", attempt+1)
+				time.Sleep(5 * time.Second)
+			}
+		}
+		if err != nil {
+			return "", fmt.Errorf("edge-tts failed after %d attempts: %w, output: %s", maxRetries, err, string(output))
+		}
+
+		audioFiles = append(audioFiles, tempFile)
+	}
+
+	// Concatenate all audio files with silence between them
+	outFile, err := os.Create(audioPath)
+	if err != nil {
+		return "", fmt.Errorf("create output: %w", err)
+	}
+	defer outFile.Close()
+
+	silence := generateSilence(2000) // 2 seconds of silence
+
+	for i, audioFile := range audioFiles {
+		data, err := os.ReadFile(audioFile)
+		if err != nil {
+			return "", fmt.Errorf("read audio part: %w", err)
+		}
+		outFile.Write(data)
+
+		// Add silence between segments (except after last)
+		if i < len(audioFiles)-1 {
+			outFile.Write(silence)
+		}
+	}
+
+	return audioPath, nil
+}
+
 // ListVoices returns available German voice options
 func ListVoices() []string {
 	return []string{
