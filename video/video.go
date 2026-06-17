@@ -7,6 +7,7 @@ func GenerateVideo(imagePath, audioPath, outputVideoPath string) error {
 	// Example FFmpeg command: create a video using a static image and overlaying the audio.
 	// Adjust parameters as needed for looping audio or adding pauses.
 	cmd := exec.Command("ffmpeg",
+		"-y", // Overwrite output file without asking
 		"-loop", "1",
 		"-i", imagePath,
 		"-i", audioPath,
